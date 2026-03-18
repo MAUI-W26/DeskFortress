@@ -1,0 +1,126 @@
+# .NET / MAUI gitignore
+
+############################
+# Build output
+############################
+bin/
+obj/
+out/
+
+############################
+# Visual Studio
+############################
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+############################
+# Rider / JetBrains
+############################
+.idea/
+*.sln.iml
+
+############################
+# VS Code
+############################
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+############################
+# OS files
+############################
+.DS_Store
+Thumbs.db
+
+############################
+# Logs
+############################
+*.log
+
+############################
+# NuGet
+############################
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+############################
+# Test results
+############################
+TestResults/
+
+############################
+# Coverage
+############################
+coverage/
+*.coverage
+*.coveragexml
+
+############################
+# Android
+############################
+*.apk
+*.aab
+*.ap_  
+*.dex
+*.keystore
+*.jks
+*.iml
+*.hprof
+
+# Android build intermediates
+*/android/bin/
+*/android/obj/
+
+############################
+# iOS
+############################
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Xcode
+DerivedData/
+*.xcworkspace
+*.xcuserdata
+*.xcuserstate
+
+############################
+# MacCatalyst
+############################
+*.pkg
+
+############################
+# Windows
+############################
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.pdb
+
+############################
+# MAUI specific
+############################
+platforms/**/bin/
+platforms/**/obj/
+
+############################
+# Secrets / environment
+############################
+*.env
+.env.*
+secrets.json
+
+############################
+# Temporary files
+############################
+*.tmp
+*.temp
+*.cache
