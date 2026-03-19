@@ -1,0 +1,18 @@
+{
+  "type": "projectile",
+  "original_size": {
+    "width": 82.560,
+    "height": 69.120
+  },
+  "collision_shapes": [
+    {
+      "shape": "ellipse",
+      "center": {
+        "x": 41.28,
+        "y": 34.56
+      },
+      "radius_x": 41.28,
+      "radius_y": 34.56
+    }
+  ]
+}
