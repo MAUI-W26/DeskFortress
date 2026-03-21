@@ -1,5 +1,19 @@
 {
   "type": "coworker",
+  "metadata": {
+    "units": {
+      "space": "px",
+      "real_world": "ft"
+    },
+    "real_measure": {
+      "type": "height",
+      "source": {
+        "kind": "bounds",
+        "axis": "y"
+      },
+      "value": 5.5
+    }
+  },
   "original_size": {
     "width": 40.000,
     "height": 114.240

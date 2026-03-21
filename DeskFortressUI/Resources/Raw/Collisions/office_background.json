@@ -1,5 +1,23 @@
 {
   "type": "background",
+
+  "metadata": {
+    "units": {
+      "space": "px",
+      "real_world": "ft"
+    },
+    "real_measure": {
+      "type": "height",
+      "source": {
+        "kind": "shape",
+        "group": "front_walls",
+        "index": 0,
+        "axis": "y"
+      },
+      "value": 8
+    }
+  },
+
   "original_size": {
     "width": 314.560,
     "height": 115.200

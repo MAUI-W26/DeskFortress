@@ -1,9 +1,28 @@
 {
   "type": "projectile",
+
+  "metadata": {
+    "units": {
+      "space": "px",
+      "real_world": "ft"
+    },
+    "real_measure": {
+      "type": "diameter",
+      "source": {
+        "kind": "shape",
+        "group": "collision_shapes",
+        "index": 0,
+        "axis": "x"
+      },
+      "value": 0.25
+    }
+  },
+
   "original_size": {
     "width": 82.560,
     "height": 69.120
   },
+
   "collision_shapes": [
     {
       "shape": "ellipse",

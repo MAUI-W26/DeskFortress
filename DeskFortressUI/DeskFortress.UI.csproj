@@ -68,4 +68,8 @@
 	  <Folder Include="Resources\Raw\Audio\Sfx\" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <ProjectReference Include="..\DeskFortress.Core\DeskFortress.Core.csproj" />
+	</ItemGroup>
+
 </Project>
