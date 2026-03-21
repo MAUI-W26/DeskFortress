@@ -17,4 +17,9 @@ public static class AssetNormalizer
             NormalizePoint(ellipse.Center, size),
             ellipse.RadiusX / size.Width,
             ellipse.RadiusY / size.Height);
+
+    public static Vec2 NormalizeAnchor(AssetAnchor anchor, AssetSize size)
+    => new(
+        anchor.X / size.Width,
+        anchor.Y / size.Height);
 }

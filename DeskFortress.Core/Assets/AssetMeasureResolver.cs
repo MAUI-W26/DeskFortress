@@ -65,7 +65,21 @@ public static class AssetMeasureResolver
         };
     }
 
-    // Resolves the background polygon group referenced by metadata.
+    public static Vec2 ResolveCharacterAnchor(CharacterAsset asset)
+    {
+        Validate(asset.Metadata);
+
+        // Explicit metadata anchor wins.
+        if (asset.Metadata.Anchor is not null)
+        {
+            return AssetNormalizer.NormalizeAnchor(asset.Metadata.Anchor, asset.OriginalSize);
+        }
+
+        // Default fallback keeps older assets working.
+        // This represents a simple bottom-center feet anchor.
+        return new Vec2(0.5f, 1f);
+    }
+
     private static JsonPolygon ResolveBackgroundPolygonGroup(BackgroundAsset asset, string? group, int? index)
     {
         if (group is null || index is null)

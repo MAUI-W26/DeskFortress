@@ -11,7 +11,7 @@ public sealed class AssetSize
 }
 
 // Raw JSON metadata wrapper.
-// This holds unit information and the real-world measurement reference.
+// This holds unit information, real-world measurement reference and local anchor data.
 public sealed class AssetMetadata
 {
     [JsonPropertyName("units")]
@@ -19,6 +19,9 @@ public sealed class AssetMetadata
 
     [JsonPropertyName("real_measure")]
     public AssetRealMeasure RealMeasure { get; set; } = new();
+
+    [JsonPropertyName("anchor")]
+    public AssetAnchor? Anchor { get; set; } // Optional, as not all assets may define an anchor point.
 }
 
 // Declares the source space unit and the real-world comparison unit.
@@ -62,6 +65,17 @@ public sealed class AssetMeasureSource
     public string Axis { get; set; } = string.Empty;
 }
 
+// Explicit asset anchor in normalized local sprite space.
+// Coworkers should define the foot contact point here.
+public sealed class AssetAnchor
+{
+    [JsonPropertyName("x")]
+    public float X { get; set; }
+
+    [JsonPropertyName("y")]
+    public float Y { get; set; }
+}
+
 // Raw JSON point in pixel coordinates.
 public sealed class JsonPoint
 {
@@ -99,4 +113,18 @@ public sealed class JsonPolygon
 
     [JsonPropertyName("points")]
     public List<JsonPoint> Points { get; set; } = [];
+
+    // Optional gameplay flags for decor/world objects.
+    // Defaults are applied by the factory when absent.
+    [JsonPropertyName("hittable")]
+    public bool? Hittable { get; set; }
+
+    [JsonPropertyName("blocks_movement")]
+    public bool? BlocksMovement { get; set; }
+
+    [JsonPropertyName("property_penalty")]
+    public int? PropertyPenalty { get; set; }
+
+    [JsonPropertyName("durability")]
+    public int? Durability { get; set; }
 }
