@@ -11,21 +11,27 @@ public static class RenderDtoFactory
         return new RenderEntityDto
         {
             Id = entity.Id,
-            X = entity.X,
-            Y = entity.Y,
+            GroundX = entity.X,
+            GroundY = entity.Y,
+            RenderX = entity.RenderX,
+            RenderY = entity.RenderY,
             Scale = entity.Scale,
-            Depth = entity.Depth
+            Depth = entity.Depth,
+            Altitude = entity.Z
         };
     }
 }
 
 // Minimal render payload for the frontend.
-// Position and final scale are enough for sprite placement.
+// Ground position is useful for gameplay overlays while render position is what the UI should draw.
 public sealed class RenderEntityDto
 {
     public Guid Id { get; init; }
-    public float X { get; init; }
-    public float Y { get; init; }
+    public float GroundX { get; init; }
+    public float GroundY { get; init; }
+    public float RenderX { get; init; }
+    public float RenderY { get; init; }
     public float Scale { get; init; }
     public float Depth { get; init; }
+    public float Altitude { get; init; }
 }

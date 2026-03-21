@@ -28,12 +28,16 @@ public sealed class SpawnSystem
         var zone = _map.SpawnZones[_random.Next(_map.SpawnZones.Count)];
         var point = RandomPointInsidePolygon(zone);
 
+        // X/Y are ground contact anchor coordinates.
+        // Spawn zones therefore represent feet/floor placement correctly.
         entity.X = point.X;
         entity.Y = point.Y;
+        entity.Z = 0f;
+        entity.VZ = 0f;
 
-        // Initial motion values can later be replaced by a behavior system.
-        entity.VX = RandomRange(-0.05f, 0.05f);
-        entity.VY = RandomRange(0.03f, 0.08f);
+        // Initial motion values
+        entity.VX = RandomRange(-0.05f, 0.05f);// INFO: This is a temporary random motion generator. It can be replaced by a more deterministic behavior system later on.
+        entity.VY = RandomRange(0.03f, 0.08f); // both positive to ensure direction (toward the screen)
 
         entity.Depth = _depthSystem.GetDepth(entity.Y);
         entity.DepthScale = _depthSystem.GetCharacterDepthScale(entity.Y);

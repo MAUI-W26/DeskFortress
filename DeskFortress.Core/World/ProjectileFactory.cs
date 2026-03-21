@@ -1,5 +1,6 @@
 using DeskFortress.Core.Assets;
 using DeskFortress.Core.Entities;
+using DeskFortress.Core.Geometry;
 
 namespace DeskFortress.Core.World;
 
@@ -15,7 +16,11 @@ public static class ProjectileFactory
             asset.Metadata.RealMeasure.Value,
             normalizedMeasure);
 
-        var entity = new ProjectileEntity(scaleProfile);
+        var entity = new ProjectileEntity(scaleProfile)
+        {
+            // Projectile anchor is its center.
+            AnchorLocal = new Vec2(0.5f, 0.5f)
+        };
 
         foreach (var shape in asset.CollisionShapes)
         {

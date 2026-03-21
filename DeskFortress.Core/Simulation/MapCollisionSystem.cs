@@ -5,7 +5,7 @@ using DeskFortress.Core.World;
 namespace DeskFortress.Core.Simulation;
 
 // Handles entity-vs-map occupancy checks.
-// Floor allows movement, while front walls and decor block it.
+// Floor allows movement, while blocking decor objects prevent occupancy.
 public sealed class MapCollisionSystem
 {
     private readonly BackgroundMap _map;
@@ -23,14 +23,11 @@ public sealed class MapCollisionSystem
             return false;
         }
 
-        var insideFrontWall = _map.FrontWalls.Any(poly => CollisionHelper.PointInPolygon(point, poly));
-        if (insideFrontWall)
-        {
-            return false;
-        }
+        var insideBlockingDecor = _map.DecorObjects
+            .Where(obj => obj.BlocksMovement && !obj.IsDestroyed) // tracking destroyed decor objects to allow passthrough
+            .Any(obj => CollisionHelper.PointInPolygon(point, obj.Polygon));
 
-        var insideDecor = _map.DecorObjects.Any(obj => CollisionHelper.PointInPolygon(point, obj.Polygon));
-        if (insideDecor)
+        if (insideBlockingDecor)
         {
             return false;
         }

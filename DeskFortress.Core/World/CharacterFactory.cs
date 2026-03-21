@@ -15,7 +15,10 @@ public static class CharacterFactory
             asset.Metadata.RealMeasure.Value,
             normalizedMeasure);
 
-        var entity = new CoworkerEntity(scaleProfile);
+        var entity = new CoworkerEntity(scaleProfile)
+        {
+            AnchorLocal = AssetMeasureResolver.ResolveCharacterAnchor(asset)
+        };
 
         foreach (var head in asset.Head)
         {
