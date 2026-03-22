@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DeskFortress.UI.Pages.MainMenuPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="DeskFortress">
+
+    <Grid RowDefinitions="*,Auto" Padding="24">
+
+        <!-- Illustration area -->
+        <Grid>
+            <Image
+                x:Name="IllustrationImage"
+                Aspect="AspectFit"
+                Opacity="0.9" />
+        </Grid>
+
+        <!-- Controls -->
+        <VerticalStackLayout
+            Grid.Row="1"
+            Spacing="12"
+            HorizontalOptions="Center">
+
+            <Button
+                x:Name="StartButton"
+                Text="Start Game"
+                WidthRequest="200" />
+
+            <Button
+                x:Name="StatsButton"
+                Text="Stats"
+                WidthRequest="200" />
+
+        </VerticalStackLayout>
+
+    </Grid>
+</ContentPage>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="DeskFortress.UI.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:DeskFortress.UI"
+    xmlns:pages="clr-namespace:DeskFortress.UI.Pages"
+    Title="DeskFortress">
+
+    <ShellContent
+        Route="SplashPage"
+        ContentTemplate="{DataTemplate pages:SplashPage}" />
+
+    <ShellContent
+        Route="MainMenuPage"
+        ContentTemplate="{DataTemplate pages:MainMenuPage}" />
+
+</Shell>
