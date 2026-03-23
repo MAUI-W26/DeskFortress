@@ -1,0 +1,107 @@
+﻿<ContentPage
+    x:Class="DeskFortress.UI.Pages.GamePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    BackgroundColor="#111111"
+    Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Score HUD -->
+        <Grid
+            Grid.Row="0"
+            Padding="12,8"
+            BackgroundColor="#22000000">
+            <Label
+                x:Name="ScoreLabel"
+                Text="Score: 0"
+                FontSize="16"
+                TextColor="White"
+                HorizontalOptions="Start" />
+        </Grid>
+
+        <!-- Game Viewport -->
+        <Grid Grid.Row="1">
+
+            <!-- World rendering (Core-driven) -->
+            <Grid x:Name="Viewport" BackgroundColor="Black">
+                <AbsoluteLayout x:Name="WorldRoot">
+                    <Image x:Name="BackgroundImage"
+                           Source="office_background.png"
+                           Aspect="AspectFit"
+                           InputTransparent="True" />
+                    <AbsoluteLayout x:Name="WorldLayer"
+                                    InputTransparent="True" />
+                </AbsoluteLayout>
+            </Grid>
+
+            <!-- Input overlay – PointerGestureRecognizer handles everything:
+                   press within ball zone  → throw aim + release to throw
+                   press outside ball zone → camera pan drag
+                 Camera A/D buttons remain as alternative pan method. -->
+            <Grid x:Name="InputOverlay"
+                  BackgroundColor="#01000000">
+
+                <!-- Single pointer recognizer: no TotalX/TotalY ambiguity, absolute coords -->
+                <Grid.GestureRecognizers>
+                    <PointerGestureRecognizer
+                        PointerPressed="OnOverlayPointerPressed"
+                        PointerMoved="OnOverlayPointerMoved"
+                        PointerReleased="OnOverlayPointerReleased" />
+                </Grid.GestureRecognizers>
+
+                <!-- Throw trajectory preview arc (shown while aiming, hidden otherwise) -->
+                <GraphicsView
+                    x:Name="TrajectoryView"
+                    IsVisible="False"
+                    InputTransparent="True"
+                    HorizontalOptions="Fill"
+                    VerticalOptions="Fill" />
+
+                <!-- On-screen controls -->
+                <StackLayout Orientation="Horizontal"
+                             HorizontalOptions="Start"
+                             VerticalOptions="End"
+                             Spacing="8"
+                             Margin="8,0,0,16">
+                    <Button Text="A / ←"
+                            FontSize="12"
+                            Padding="8,4"
+                            Clicked="OnMoveLeftClicked" />
+                    <Button Text="D / →"
+                            FontSize="12"
+                            Padding="8,4"
+                            Clicked="OnMoveRightClicked" />
+                    <Button Text="Throw ↑"
+                            FontSize="12"
+                            Padding="8,4"
+                            Clicked="OnThrowForwardClicked" />
+                </StackLayout>
+
+                <!-- Paperball stays fixed; drag direction controls aim, release throws. -->
+                <Image x:Name="ThrowOriginBall"
+                       Source="paperball01.png"
+                      WidthRequest="56"
+                      HeightRequest="56"
+                       VerticalOptions="End"
+                       HorizontalOptions="Center"
+                       Margin="0,0,0,20"
+                       InputTransparent="True" />
+
+                  <!-- Projectile sprite used only for the fake screen-space flight animation. -->
+                  <Image x:Name="ThrowFlyingBall"
+                      Source="paperball01.png"
+                      WidthRequest="56"
+                      HeightRequest="56"
+                      VerticalOptions="End"
+                      HorizontalOptions="Center"
+                      Margin="0,0,0,20"
+                      IsVisible="False"
+                      InputTransparent="True" />
+
+            </Grid>
+
+        </Grid>
+
+    </Grid>
+</ContentPage>

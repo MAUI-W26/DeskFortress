@@ -64,6 +64,54 @@ public sealed class CollisionSystem
         return null;
     }
 
+    // Resolves an impact at a final ground position without simulating in-flight steps.
+    // This is used by the UI-driven fake arc flow.
+    public ProjectileImpactResult CheckImpactAtPoint(
+        ProjectileEntity projectile,
+        IEnumerable<CoworkerEntity> coworkers,
+        float impactX,
+        float impactY)
+    {
+        projectile.X = impactX;
+        projectile.Y = impactY;
+        projectile.Z = 0f;
+
+        if (IsOutOfBounds(projectile))
+        {
+            return new ProjectileImpactResult
+            {
+                ImpactType = ProjectileImpactType.OutOfBounds
+            };
+        }
+
+        var projectileWorldShape = GetProjectileWorldShape(projectile);
+        var projectileCenter = projectileWorldShape.Center;
+        var projectileRadius = MathF.Max(projectileWorldShape.RadiusX, projectileWorldShape.RadiusY);
+
+        var coworkerHit = CheckCoworkerHit(projectileCenter, projectileRadius, coworkers);
+        if (coworkerHit is not null)
+        {
+            return coworkerHit;
+        }
+
+        var decorHit = CheckDecorImpact(projectileCenter, projectileRadius);
+        if (decorHit is not null)
+        {
+            return decorHit;
+        }
+
+        var wallHit = CheckWallImpact(projectileCenter, projectileRadius);
+        if (wallHit is not null)
+        {
+            return wallHit;
+        }
+
+        return new ProjectileImpactResult
+        {
+            ImpactType = ProjectileImpactType.Floor
+        };
+    }
+
     private ProjectileImpactResult? CheckCoworkerHit(
         Vec2 projectileCenter,
         float projectileRadius,

@@ -10,22 +10,29 @@ public sealed class EllipseShape
 
     public EllipseShape(Vec2 center, float radiusX, float radiusY)
     {
-        if (radiusX <= 0f)
-        {
-            throw new ArgumentOutOfRangeException(nameof(radiusX), "Ellipse radius X must be positive.");
-        }
+        // Normalize all invalid inputs at the boundary (single choke point)
 
-        if (radiusY <= 0f)
-        {
-            throw new ArgumentOutOfRangeException(nameof(radiusY), "Ellipse radius Y must be positive.");
-        }
+        if (float.IsNaN(radiusX) || float.IsInfinity(radiusX))
+            throw new InvalidOperationException("Ellipse radiusX is invalid (NaN/Infinity).");
+
+        if (float.IsNaN(radiusY) || float.IsInfinity(radiusY))
+            throw new InvalidOperationException("Ellipse radiusY is invalid (NaN/Infinity).");
+
+        // Enforce positivity globally
+        radiusX = MathF.Abs(radiusX);
+        radiusY = MathF.Abs(radiusY);
+
+        // Prevent zero-radius degenerates (breaks collision math)
+        const float min = 0.0001f;
+
+        if (radiusX < min) radiusX = min;
+        if (radiusY < min) radiusY = min;
 
         Center = center;
         RadiusX = radiusX;
         RadiusY = radiusY;
     }
 
-    // Used when width, height or extents are needed.
     public Bounds GetBounds()
         => new(
             Center.X - RadiusX,

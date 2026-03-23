@@ -4,20 +4,28 @@ using DeskFortress.Core.World;
 
 namespace DeskFortress.Core.Simulation;
 
-// Handles coworker spawn placement inside background-defined spawn zones.
-// Spawned entities also receive an initial movement direction and depth state.
+/// <summary>
+/// Handles coworker spawn placement inside background-defined spawn zones.
+/// Ensures spawned entities are placed in walkable areas, avoiding blocked zones.
+/// </summary>
 public sealed class SpawnSystem
 {
     private readonly BackgroundMap _map;
     private readonly DepthSystem _depthSystem;
+    private readonly MapCollisionSystem _mapCollision;
     private readonly Random _random = new();
 
-    public SpawnSystem(BackgroundMap map, DepthSystem depthSystem)
+    public SpawnSystem(BackgroundMap map, DepthSystem depthSystem, MapCollisionSystem mapCollision)
     {
         _map = map;
         _depthSystem = depthSystem;
+        _mapCollision = mapCollision;
     }
 
+    /// <summary>
+    /// Spawns a coworker at a valid walkable position within spawn zones.
+    /// Validates against floor boundaries and blocking decor objects.
+    /// </summary>
     public void SpawnCoworker(CoworkerEntity entity)
     {
         if (_map.SpawnZones.Count == 0)
@@ -25,43 +33,70 @@ public sealed class SpawnSystem
             throw new InvalidOperationException("No spawn zones are defined in the background map.");
         }
 
-        var zone = _map.SpawnZones[_random.Next(_map.SpawnZones.Count)];
-        var point = RandomPointInsidePolygon(zone);
+        // Try multiple zones if needed to find valid spawn point
+        for (int zoneAttempt = 0; zoneAttempt < _map.SpawnZones.Count * 2; zoneAttempt++)
+        {
+            var zone = _map.SpawnZones[_random.Next(_map.SpawnZones.Count)];
+            var point = FindValidSpawnPoint(zone);
 
-        // X/Y are ground contact anchor coordinates.
-        // Spawn zones therefore represent feet/floor placement correctly.
-        entity.X = point.X;
-        entity.Y = point.Y;
+            if (point.HasValue)
+            {
+                // Found valid spawn point
+                entity.X = point.Value.X;
+                entity.Y = point.Value.Y;
+                entity.Z = 0f;
+                entity.VZ = 0f;
+                entity.VX = 0f;
+                entity.VY = 0f;
+
+                // Initialize depth-based perspective scaling
+                entity.Depth = _depthSystem.GetDepth(entity.Y);
+                entity.DepthScale = _depthSystem.GetCharacterDepthScale(entity.Y);
+                return;
+            }
+        }
+
+        // Fallback: use first spawn zone's first point (should never happen)
+        var fallbackZone = _map.SpawnZones[0];
+        var fallbackPoint = fallbackZone.Points[0];
+        entity.X = fallbackPoint.X;
+        entity.Y = fallbackPoint.Y;
         entity.Z = 0f;
         entity.VZ = 0f;
-
-        // Initial motion values
-        entity.VX = RandomRange(-0.05f, 0.05f);// INFO: This is a temporary random motion generator. It can be replaced by a more deterministic behavior system later on.
-        entity.VY = RandomRange(0.03f, 0.08f); // both positive to ensure direction (toward the screen)
-
+        entity.VX = 0f;
+        entity.VY = 0f;
         entity.Depth = _depthSystem.GetDepth(entity.Y);
         entity.DepthScale = _depthSystem.GetCharacterDepthScale(entity.Y);
     }
 
-    // Random sampling is retried until a valid point is found in the polygon.
-    private Vec2 RandomPointInsidePolygon(Polygon polygon)
+    /// <summary>
+    /// Finds a valid spawn point inside a polygon that's also walkable (on floor, not blocked).
+    /// </summary>
+    private Vec2? FindValidSpawnPoint(Polygon zone)
     {
-        var bounds = polygon.GetBounds();
+        var bounds = zone.GetBounds();
 
-        for (var i = 0; i < 64; i++)
+        // Try up to 100 random points within the zone
+        for (var i = 0; i < 100; i++)
         {
             var point = new Vec2(
                 RandomRange(bounds.MinX, bounds.MaxX),
                 RandomRange(bounds.MinY, bounds.MaxY));
 
-            if (CollisionHelper.PointInPolygon(point, polygon))
-            {
-                return point;
-            }
+            // Check if point is inside spawn zone polygon
+            if (!CollisionHelper.PointInPolygon(point, zone))
+                continue;
+
+            // Check if point is on walkable floor (not blocked by decor)
+            if (!_mapCollision.CanOccupy(point))
+                continue;
+
+            // Valid spawn point found!
+            return point;
         }
 
-        // Safe fallback to avoid hard failure if sampling misses too many times.
-        return polygon.Points[0];
+        // No valid point found in this zone
+        return null;
     }
 
     private float RandomRange(float min, float max)

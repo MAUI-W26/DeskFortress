@@ -1,47 +1,46 @@
 using DeskFortress.UI.ViewModels;
+using DeskFortress.UI.Audio;
 
 namespace DeskFortress.UI.Pages;
 
 /// <summary>
 /// Main menu page.
-/// 
-/// Responsibilities:
-/// - bind UI to ViewModel
-/// - handle navigation only
-/// - run lightweight animation (illustration rotation)
-/// 
-/// Does NOT:
-/// - create GameWorld
-/// - touch Core logic
 /// </summary>
 public partial class MainMenuPage : ContentPage
 {
     private readonly MainMenuViewModel _vm;
+    private readonly AudioService _audio;
 
     private bool _isRunning;
 
-    public MainMenuPage(MainMenuViewModel vm)
+    public MainMenuPage(MainMenuViewModel vm, AudioService audio)
     {
         InitializeComponent();
+
         _vm = vm;
+        _audio = audio;
 
-        // Wire UI events to ViewModel actions
-        StartButton.Clicked += (_, _) => _vm.StartGame();
-        StatsButton.Clicked += (_, _) => _vm.OpenStats();
+        // UI  VM
+        StartButton.Clicked += OnStartClicked;
+        StatsButton.Clicked += OnStatsClicked;
 
-        // Subscribe to ViewModel events
+        // VM  UI
         _vm.StartGameRequested += OnStartGameRequested;
         _vm.StatsRequested += OnStatsRequested;
     }
+
+    // ----------------------------
+    // Lifecycle
+    // ----------------------------
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
 
-        // Initial image render
+        _audio.PlayMusic("menu");
+
         UpdateIllustration();
 
-        // Start rotation loop
         _isRunning = true;
         _ = RunIllustrationLoop();
     }
@@ -50,14 +49,43 @@ public partial class MainMenuPage : ContentPage
     {
         base.OnDisappearing();
 
-        // Stop loop cleanly to avoid background execution
         _isRunning = false;
+
+        _audio.StopMusic();
     }
 
-    /// <summary>
-    /// Simple loop to rotate menu images.
-    /// No timers from Core — UI concern only.
-    /// </summary>
+    // ----------------------------
+    // UI events  VM
+    // ----------------------------
+
+    private void OnStartClicked(object? sender, EventArgs e)
+    {
+        _vm.StartGame();
+    }
+
+    private void OnStatsClicked(object? sender, EventArgs e)
+    {
+        _vm.OpenStats();
+    }
+
+    // ----------------------------
+    // VM events  UI
+    // ----------------------------
+
+    private async void OnStartGameRequested()
+    {
+        await Shell.Current.GoToAsync("//GamePage");
+    }
+
+    private async void OnStatsRequested()
+    {
+        await DisplayAlert("Info", "Stats page not implemented yet", "OK");
+    }
+
+    // ----------------------------
+    // Illustration loop
+    // ----------------------------
+
     private async Task RunIllustrationLoop()
     {
         while (_isRunning)
@@ -66,37 +94,14 @@ public partial class MainMenuPage : ContentPage
 
             _vm.NextIllustration();
 
-            // Ensure UI thread update
             MainThread.BeginInvokeOnMainThread(UpdateIllustration);
         }
     }
 
-    /// <summary>
-    /// Applies the current illustration to the Image control.
-    /// 
-    /// IMPORTANT:
-    /// We explicitly use ImageSource.FromFile(...) because MAUI
-    /// resource resolution is not reliable with plain strings
-    /// when assets are in nested folders.
-    /// </summary>
     private void UpdateIllustration()
     {
         var path = _vm.CurrentIllustration;
 
-        // Debug (optional, remove later)
-        System.Diagnostics.Debug.WriteLine($"[MainMenu] Loading image: {path}");
-
         IllustrationImage.Source = ImageSource.FromFile(path);
-    }
-
-    private async void OnStartGameRequested()
-    {
-        // Route not implemented yet -> placeholder
-        await DisplayAlert("Info", "Game start not implemented yet", "OK");
-    }
-
-    private async void OnStatsRequested()
-    {
-        await DisplayAlert("Info", "Stats page not implemented yet", "OK");
     }
 }

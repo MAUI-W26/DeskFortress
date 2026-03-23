@@ -4,6 +4,8 @@ using DeskFortress.Core.World;
 
 namespace DeskFortress.Core.Simulation;
 
+public readonly record struct MoveResult(bool BlockedX, bool BlockedY);
+
 // Handles entity-vs-map occupancy checks.
 // Floor allows movement, while blocking decor objects prevent occupancy.
 public sealed class MapCollisionSystem
@@ -36,14 +38,14 @@ public sealed class MapCollisionSystem
     }
 
     // Resolves movement axis-by-axis so blocked movement can still slide along free axes.
-    public void ResolveMove(Entity entity, float dt)
+    public MoveResult ResolveMove(Entity entity, float dt)
     {
         var full = new Vec2(entity.X + (entity.VX * dt), entity.Y + (entity.VY * dt));
         if (CanOccupy(full))
         {
             entity.X = full.X;
             entity.Y = full.Y;
-            return;
+            return new MoveResult(BlockedX: false, BlockedY: false);
         }
 
         var xOnly = new Vec2(entity.X + (entity.VX * dt), entity.Y);
@@ -67,12 +69,14 @@ public sealed class MapCollisionSystem
         // Simple bounce-back damping when an axis is blocked.
         if (!movedX)
         {
-            entity.VX *= -0.5f;
+            entity.VX *= -0.85f;
         }
 
         if (!movedY)
         {
-            entity.VY *= -0.5f;
+            entity.VY *= -0.20f;
         }
+
+        return new MoveResult(BlockedX: !movedX, BlockedY: !movedY);
     }
 }

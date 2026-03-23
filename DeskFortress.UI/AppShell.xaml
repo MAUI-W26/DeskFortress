@@ -14,5 +14,9 @@
     <ShellContent
         Route="MainMenuPage"
         ContentTemplate="{DataTemplate pages:MainMenuPage}" />
+    
+    <ShellContent
+    Route="GamePage"
+    ContentTemplate="{DataTemplate pages:GamePage}" />
 
 </Shell>
