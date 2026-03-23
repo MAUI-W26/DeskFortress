@@ -13,16 +13,16 @@ public sealed class CoworkerAI
     private readonly Random _random = new();
     private readonly Dictionary<Guid, MovementState> _states = new();
 
-    private const float MinForwardSpeed = 0.05f;
-    private const float MaxForwardSpeed = 0.12f;
-    private const float MaxStrafeSpeed = 0.14f;
-    private const float MinStrafeDuration = 0.35f;
-    private const float MaxStrafeDuration = 1.05f;
+    private const float MinForwardSpeed = 0.012f;
+    private const float MaxForwardSpeed = 0.052f;
+    private const float MaxStrafeSpeed = 0.175f;
+    private const float MinStrafeDuration = 0.20f;
+    private const float MaxStrafeDuration = 0.72f;
     private const float LateralImpulseDecay = 2.4f;
     private const float MaxLateralImpulse = 0.18f;
     private const float WallBounceImpulse = 0.11f;
     private const float CrowdBumpImpulse = 0.07f;
-    private const float MinimumForwardRatio = 0.55f;
+    private const float MinimumForwardRatio = 0.72f;
 
     private sealed class MovementState
     {
@@ -57,12 +57,12 @@ public sealed class CoworkerAI
         desiredVX = Math.Clamp(desiredVX, -MaxStrafeSpeed * baseSpeed, MaxStrafeSpeed * baseSpeed);
 
         var lateralLoad = MathF.Abs(desiredVX) / MathF.Max(0.001f, MaxStrafeSpeed * baseSpeed);
-        var targetVY = state.DesiredForwardSpeed * baseSpeed * (1f - (lateralLoad * 0.30f));
+        var targetVY = state.DesiredForwardSpeed * baseSpeed * (1f - (lateralLoad * 0.46f));
         var minForwardSpeed = MinForwardSpeed * baseSpeed * MinimumForwardRatio;
         targetVY = MathF.Max(minForwardSpeed, targetVY);
 
-        coworker.VX = Lerp(coworker.VX, desiredVX, MathF.Min(1f, 0.20f + (dt * 5.0f)));
-        coworker.VY = Lerp(coworker.VY, targetVY, MathF.Min(1f, 0.14f + (dt * 3.0f)));
+        coworker.VX = Lerp(coworker.VX, desiredVX, MathF.Min(1f, 0.26f + (dt * 6.2f)));
+        coworker.VY = Lerp(coworker.VY, targetVY, MathF.Min(1f, 0.09f + (dt * 2.3f)));
 
         if (coworker.VY < minForwardSpeed)
         {
@@ -158,15 +158,15 @@ public sealed class CoworkerAI
     {
         var direction = ResolveDirection(preferredDirection, fallbackDirection: RandomSign());
 
-        if (_random.NextDouble() < 0.40)
+        if (_random.NextDouble() < 0.58)
         {
             direction *= -1f;
         }
 
-        var intensity = 0.45f + (state.Agitation * 0.45f);
+        var intensity = MathF.Min(1.0f, 0.55f + (state.Agitation * 0.55f));
         state.TargetStrafeSpeed = direction * RandomRange(0.04f, MaxStrafeSpeed * intensity + 0.04f);
-        state.DesiredForwardSpeed = RandomRange(MinForwardSpeed, MaxForwardSpeed);
-        state.RetargetTimer = RandomRange(MinStrafeDuration, MaxStrafeDuration) * (1f - (state.Agitation * 0.20f));
+        state.DesiredForwardSpeed = RandomRange(MinForwardSpeed, MaxForwardSpeed) * (1f - (state.Agitation * 0.10f));
+        state.RetargetTimer = RandomRange(MinStrafeDuration, MaxStrafeDuration) * (1f - (state.Agitation * 0.30f));
     }
 
     private float RandomRange(float min, float max)

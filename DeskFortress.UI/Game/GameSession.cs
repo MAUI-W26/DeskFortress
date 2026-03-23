@@ -11,6 +11,7 @@ public sealed class GameSession
     public int Throws { get; set; }
     public int Hits { get; set; }
     public int WallHits { get; set; }
+    public int Eliminations { get; set; }
 
     public GameSession(GameWorld world)
     {

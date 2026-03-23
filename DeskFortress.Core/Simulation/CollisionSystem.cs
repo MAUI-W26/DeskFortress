@@ -139,6 +139,17 @@ public sealed class CollisionSystem
                     continue;
                 }
 
+                if (coworker.IsCrowdingFront)
+                {
+                    return new ProjectileImpactResult
+                    {
+                        ImpactType = ProjectileImpactType.CrowdBlocker,
+                        Coworker = coworker,
+                        ZoneType = localShape.ZoneType,
+                        ScoreDelta = 0
+                    };
+                }
+
                 return new ProjectileImpactResult
                 {
                     ImpactType = ProjectileImpactType.Coworker,

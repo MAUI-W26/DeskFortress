@@ -8,6 +8,7 @@ public enum ProjectileImpactType
 {
     None,
     Coworker,
+    CrowdBlocker,
     DecorObject,
     Wall,
     Floor,

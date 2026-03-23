@@ -66,7 +66,7 @@ public sealed class WaveSpawnManager
     public float GetCurrentSpeedMultiplier()
     {
         var difficulty = MathF.Min(_gameTime / AccelerationTime, 1.0f);
-        return 1.0f + (difficulty * 0.5f); // Speed increases from 1.0x to 1.5x
+        return 0.88f + (difficulty * 0.30f); // Speed increases from 0.88x to 1.18x
     }
 
     /// <summary>

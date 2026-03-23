@@ -43,8 +43,37 @@ public sealed class CoworkerEntity : Entity
 {
     public CoworkerEntity(AssetScaleProfile scaleProfile) : base(scaleProfile)
     {
+        Health = MaxHealth;
     }
 
     // These shapes remain local until a collision check needs world-space versions.
     public List<BodyPartShape> LocalShapes { get; } = [];
+
+    public int MaxHealth { get; } = 3;
+    public int Health { get; private set; }
+
+    // Frontline blockers stay alive at the front edge and obstruct throws.
+    public bool IsCrowdingFront { get; set; }
+
+    // Applies hit-zone damage rules and returns true if this hit killed the coworker.
+    public bool ApplyHit(HitZoneType zoneType)
+    {
+        if (!IsAlive)
+            return false;
+
+        var damage = zoneType switch
+        {
+            HitZoneType.Head => MaxHealth, // headshot instant kill
+            HitZoneType.Chest => 2,
+            _ => 1
+        };
+
+        Health = Math.Max(0, Health - damage);
+        if (Health > 0)
+            return false;
+
+        IsAlive = false;
+        IsCrowdingFront = false;
+        return true;
+    }
 }

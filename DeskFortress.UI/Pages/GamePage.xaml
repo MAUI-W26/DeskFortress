@@ -11,13 +11,22 @@
         <Grid
             Grid.Row="0"
             Padding="12,8"
-            BackgroundColor="#22000000">
+            BackgroundColor="#22000000"
+            ColumnDefinitions="*,Auto">
             <Label
                 x:Name="ScoreLabel"
                 Text="Score: 0"
                 FontSize="16"
                 TextColor="White"
                 HorizontalOptions="Start" />
+
+            <Button
+                Grid.Column="1"
+                x:Name="PauseButton"
+                Text="Pause"
+                FontSize="13"
+                Padding="12,4"
+                Clicked="OnPauseClicked" />
         </Grid>
 
         <!-- Game Viewport -->
@@ -35,10 +44,9 @@
                 </AbsoluteLayout>
             </Grid>
 
-            <!-- Input overlay – PointerGestureRecognizer handles everything:
-                   press within ball zone  → throw aim + release to throw
-                   press outside ball zone → camera pan drag
-                 Camera A/D buttons remain as alternative pan method. -->
+                 <!-- Input overlay – PointerGestureRecognizer handles everything:
+                     press within ball zone  → throw aim + release to throw
+                     press outside ball zone → camera pan drag -->
             <Grid x:Name="InputOverlay"
                   BackgroundColor="#01000000">
 
@@ -58,48 +66,120 @@
                     HorizontalOptions="Fill"
                     VerticalOptions="Fill" />
 
-                <!-- On-screen controls -->
-                <StackLayout Orientation="Horizontal"
-                             HorizontalOptions="Start"
-                             VerticalOptions="End"
-                             Spacing="8"
-                             Margin="8,0,0,16">
-                    <Button Text="A / ←"
-                            FontSize="12"
-                            Padding="8,4"
-                            Clicked="OnMoveLeftClicked" />
-                    <Button Text="D / →"
-                            FontSize="12"
-                            Padding="8,4"
-                            Clicked="OnMoveRightClicked" />
-                    <Button Text="Throw ↑"
-                            FontSize="12"
-                            Padding="8,4"
-                            Clicked="OnThrowForwardClicked" />
-                </StackLayout>
+                                <Grid x:Name="PanSliderRoot"
+                                            WidthRequest="168"
+                                            HeightRequest="96"
+                                            Margin="8,0,0,8"
+                      HorizontalOptions="Start"
+                      VerticalOptions="End">
+                    <Grid.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnPanSliderPanUpdated" />
+                    </Grid.GestureRecognizers>
+
+                                        <Border StrokeThickness="0"
+                                                        WidthRequest="100"
+                                                        HeightRequest="44"
+                                                        HorizontalOptions="Start"
+                                                        VerticalOptions="End"
+                            StrokeShape="RoundRectangle 22"
+                            BackgroundColor="#66171C26"
+                            Padding="5">
+                        <Grid>
+                            <Label Text="◀        ▶"
+                                   TextColor="#80FFFFFF"
+                                   FontSize="11"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+
+                            <Border x:Name="PanSliderThumb"
+                                    WidthRequest="34"
+                                    HeightRequest="34"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 17"
+                                    BackgroundColor="#E6FFFFFF" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Large touch zone for throw on mobile/tablet. -->
+                <Grid x:Name="ThrowTouchZone"
+                      WidthRequest="220"
+                      HeightRequest="170"
+                      Margin="0,0,0,0"
+                      HorizontalOptions="Center"
+                      VerticalOptions="End"
+                      BackgroundColor="#01000000">
+                    <Grid.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnThrowBallPanUpdated" />
+                    </Grid.GestureRecognizers>
+                </Grid>
 
                 <!-- Paperball stays fixed; drag direction controls aim, release throws. -->
                 <Image x:Name="ThrowOriginBall"
                        Source="paperball01.png"
-                      WidthRequest="56"
-                      HeightRequest="56"
+                       WidthRequest="56"
+                       HeightRequest="56"
                        VerticalOptions="End"
                        HorizontalOptions="Center"
                        Margin="0,0,0,20"
                        InputTransparent="True" />
 
-                  <!-- Projectile sprite used only for the fake screen-space flight animation. -->
-                  <Image x:Name="ThrowFlyingBall"
-                      Source="paperball01.png"
-                      WidthRequest="56"
-                      HeightRequest="56"
-                      VerticalOptions="End"
-                      HorizontalOptions="Center"
-                      Margin="0,0,0,20"
-                      IsVisible="False"
-                      InputTransparent="True" />
+                <!-- Projectile sprite used only for the fake screen-space flight animation. -->
+                <Image x:Name="ThrowFlyingBall"
+                       Source="paperball01.png"
+                       WidthRequest="56"
+                       HeightRequest="56"
+                       VerticalOptions="End"
+                       HorizontalOptions="Center"
+                       Margin="0,0,0,20"
+                       IsVisible="False"
+                       InputTransparent="True" />
 
             </Grid>
+
+                <!-- Shared overlay used for pause and game-over states. -->
+                <Grid x:Name="GameOverlay"
+                  IsVisible="False"
+                  BackgroundColor="#99000000"
+                  InputTransparent="False"
+                  Padding="20">
+
+                <Border StrokeThickness="0"
+                    StrokeShape="RoundRectangle 16"
+                    BackgroundColor="#F2171C26"
+                    MaximumWidthRequest="420"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center"
+                    Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                    <Label x:Name="OverlayTitleLabel"
+                           Text="Paused"
+                           FontSize="24"
+                           FontAttributes="Bold"
+                           TextColor="White"
+                           HorizontalTextAlignment="Center" />
+
+                    <Label x:Name="OverlayStatsLabel"
+                           TextColor="#E6FFFFFF"
+                           FontSize="14"
+                           LineBreakMode="WordWrap" />
+
+                    <Button x:Name="OverlayResumeButton"
+                        Text="Resume"
+                        Clicked="OnOverlayResumeClicked" />
+
+                    <Button x:Name="OverlayRestartButton"
+                        Text="Restart"
+                        Clicked="OnOverlayRestartClicked" />
+
+                    <Button x:Name="OverlayMenuButton"
+                        Text="Main Menu"
+                        Clicked="OnOverlayMainMenuClicked" />
+                    </VerticalStackLayout>
+                </Border>
+                </Grid>
 
         </Grid>
 

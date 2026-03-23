@@ -6,12 +6,21 @@ using DeskFortress.UI.Controls;
 using DeskFortress.UI.CoreIntegration;
 using DeskFortress.UI.Game;
 using DeskFortress.UI.Rendering;
+using Microsoft.Maui.Devices;
 using Microsoft.Maui.Layouts;
 
 namespace DeskFortress.UI.Pages;
 
 public partial class GamePage : ContentPage
 {
+    private enum OverlayMode
+    {
+        None,
+        Intro,
+        Pause,
+        GameOver
+    }
+
     private readonly GameSessionManager _sessions;
     private readonly GameLoopService _loop;
     private readonly Renderer _renderer;
@@ -25,6 +34,9 @@ public partial class GamePage : ContentPage
     private IDispatcherTimer? _timer;
     private bool _started;
     private bool _worldConfigured;
+    private bool _overlayVisible;
+    private bool _gameOverOverlayShown;
+    private OverlayMode _overlayMode;
 
     // ── Pointer-based throw state ─────────────────────────────────────────────
     //
@@ -42,6 +54,8 @@ public partial class GamePage : ContentPage
     private readonly FlickSample[] _flickBuffer = new FlickSample[8];
     private int _flickHead;
     private int _flickCount;
+    private float _touchThrowDx;
+    private float _touchThrowDy;
 
     // Prevent overlapping throws while a fake flight animation is running.
     private bool _throwAnimationActive;
@@ -52,6 +66,7 @@ public partial class GamePage : ContentPage
     // ── Camera pan state ─────────────────────────────────────────────────────
     private double _camPanLastX;
     private bool   _isCameraPanning;
+    private double _panSliderInputNormalized;
 
     // ── Debug ────────────────────────────────────────────────────────────────
     private int _frameCount;
@@ -59,9 +74,9 @@ public partial class GamePage : ContentPage
     private const double BackgroundPixelWidth = 314.560;
     private const double BackgroundPixelHeight = 115.200;
     private const double BackgroundAspectRatio = BackgroundPixelWidth / BackgroundPixelHeight;
-
-    // Camera step used by on-screen left/right buttons (in screen pixels)
-    private const double CameraButtonStep = 80.0;
+    private const double PanSliderTravel = 28.0;
+    private const double PanSliderDeadZone = 0.08;
+    private const float ThrowControlFollowFactor = 0.20f;
 
     public GamePage(
         GameSessionManager sessions,
@@ -94,7 +109,17 @@ public partial class GamePage : ContentPage
             return;
 
         _started = true;
+        _overlayVisible = false;
+        _gameOverOverlayShown = false;
+        _overlayMode = OverlayMode.None;
+        GameOverlay.IsVisible = false;
         _sessions.StartNewGame();
+
+        if (_sessions.Current is { } startedSession)
+        {
+            startedSession.IsRunning = false;
+        }
+
         _audio.PlayMusic("game");
 
         _timer = Dispatcher.CreateTimer();
@@ -110,6 +135,8 @@ public partial class GamePage : ContentPage
             System.Diagnostics.Debug.WriteLine(
                 $"World BackDepthY={session.World.Map.BackDepthY:F2}, FrontDepthY={session.World.Map.FrontDepthY:F2}");
         }
+
+        ShowOverlay(OverlayMode.Intro);
     }
 
     protected override void OnDisappearing()
@@ -134,12 +161,22 @@ public partial class GamePage : ContentPage
         _throwPointerDown  = false;
         _throwModeActive   = false;
         _isCameraPanning   = false;
+        _panSliderInputNormalized = 0;
         _throwAnimationActive = false;
+        _overlayVisible = false;
+        _gameOverOverlayShown = false;
+        _overlayMode = OverlayMode.None;
         _flickHead  = 0;
         _flickCount = 0;
+        _touchThrowDx = 0f;
+        _touchThrowDy = 0f;
         ThrowFlyingBall.IsVisible = false;
         ThrowFlyingBall.TranslationX = 0;
         ThrowFlyingBall.TranslationY = 0;
+        ThrowOriginBall.TranslationX = 0;
+        ThrowOriginBall.TranslationY = 0;
+        PanSliderThumb.TranslationX = 0;
+        GameOverlay.IsVisible = false;
         HideTrajectoryPreview();
         ThrowOriginBall.IsVisible = true;
     }
@@ -196,12 +233,16 @@ public partial class GamePage : ContentPage
 
         _frameCount++;
 
+        ApplyContinuousPanFromSlider(1f / 60f);
         _loop.Tick(session, 1f / 60f);
-        HandleSpawnRequests(session);
+        if (session.IsRunning)
+        {
+            HandleSpawnRequests(session);
+        }
         RenderFrame();
         UpdateHUD(session);
 
-        if (session.World.IsGameOver)
+        if (session.World.IsGameOver && !_gameOverOverlayShown)
         {
             HandleGameOver();
         }
@@ -229,9 +270,15 @@ public partial class GamePage : ContentPage
 
     private void HandleGameOver()
     {
-        _timer?.Stop();
+        var session = _sessions.Current;
+        if (session != null)
+        {
+            session.IsRunning = false;
+        }
+
         _audio.StopMusic();
-        ScoreLabel.Text += " - GAME OVER!";
+        _gameOverOverlayShown = true;
+        ShowOverlay(OverlayMode.GameOver);
     }
 
     #endregion
@@ -299,38 +346,24 @@ public partial class GamePage : ContentPage
 
     #endregion
 
-    #region Camera Panning (buttons only – pointer pan handled in Fling region)
-
-    private void OnMoveLeftClicked(object? sender, EventArgs e)
-    {
-        if (_throwAnimationActive)
-            return;
-
-        _viewportService.PanByScreenDelta(CameraButtonStep);
-        ApplyCamera();
-    }
-
-    private void OnMoveRightClicked(object? sender, EventArgs e)
-    {
-        if (_throwAnimationActive)
-            return;
-
-        _viewportService.PanByScreenDelta(-CameraButtonStep);
-        ApplyCamera();
-    }
-
-    #endregion
-
     #region Fling Throw Mechanic – PointerGestureRecognizer (platform-safe)
 
     // ── Pointer events on InputOverlay ────────────────────────────────────────
 
     private void OnOverlayPointerPressed(object? sender, PointerEventArgs e)
     {
-        if (_throwAnimationActive)
+        if (_throwAnimationActive || _overlayVisible)
             return;
 
         var pos = e.GetPosition(InputOverlay) ?? Point.Zero;
+        if (IsInsidePanSlider(pos))
+        {
+            _throwPointerDown = false;
+            _throwModeActive = false;
+            _isCameraPanning = false;
+            return;
+        }
+
         _throwPressStart   = pos;
         _throwPressCurrent = pos;
         _throwPointerDown  = true;
@@ -353,6 +386,9 @@ public partial class GamePage : ContentPage
 
     private void OnOverlayPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_overlayVisible)
+            return;
+
         if (!_throwPointerDown) return;
 
         var pos = e.GetPosition(InputOverlay) ?? _throwPressCurrent;
@@ -382,6 +418,9 @@ public partial class GamePage : ContentPage
 
     private void OnOverlayPointerReleased(object? sender, PointerEventArgs e)
     {
+        if (_overlayVisible)
+            return;
+
         if (!_throwPointerDown) return;
         _throwPointerDown = false;
 
@@ -399,6 +438,70 @@ public partial class GamePage : ContentPage
         }
 
         _isCameraPanning = false;
+    }
+
+    // Mobile touch path for throw control.
+    // On Android/iOS this complements desktop pointer handling.
+    private void OnThrowBallPanUpdated(object? sender, PanUpdatedEventArgs e)
+    {
+        if (!IsTouchPlatform())
+            return;
+
+        if (_overlayVisible || _throwAnimationActive)
+            return;
+
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                _throwPointerDown = true;
+                _throwModeActive = true;
+                _isCameraPanning = false;
+                _flickHead = 0;
+                _flickCount = 0;
+                _touchThrowDx = 0f;
+                _touchThrowDy = 0f;
+                break;
+
+            case GestureStatus.Running:
+            {
+                var dx = (float)e.TotalX;
+                var dy = (float)e.TotalY;
+
+                _touchThrowDx = dx;
+                _touchThrowDy = dy;
+
+                // Let the control center drift with the finger so touch feels less precise-demanding.
+                ThrowOriginBall.TranslationX = Math.Clamp(dx * ThrowControlFollowFactor, -34f, 34f);
+                ThrowOriginBall.TranslationY = Math.Clamp(dy * ThrowControlFollowFactor, -26f, 26f);
+
+                _flickBuffer[_flickHead % _flickBuffer.Length] =
+                    new FlickSample(dx, dy, Environment.TickCount64);
+                _flickHead++;
+                if (_flickCount < _flickBuffer.Length) _flickCount++;
+
+                UpdateTrajectoryPreview(dx, dy);
+                break;
+            }
+
+            case GestureStatus.Canceled:
+            case GestureStatus.Completed:
+            {
+                if (!_throwModeActive)
+                    return;
+
+                var dx = Math.Abs(_touchThrowDx) > 0.01f ? _touchThrowDx : (float)e.TotalX;
+                var dy = Math.Abs(_touchThrowDy) > 0.01f ? _touchThrowDy : (float)e.TotalY;
+
+                _throwPointerDown = false;
+                _throwModeActive = false;
+                HideTrajectoryPreview();
+                _ = CommitThrowAsync(dx, dy, ComputeFlickSpeedPx());
+                _touchThrowDx = 0f;
+                _touchThrowDy = 0f;
+                _ = ThrowOriginBall.TranslateTo(0, 0, 110, Easing.CubicOut);
+                break;
+            }
+        }
     }
 
     // ── Hit-zone detection ────────────────────────────────────────────────────
@@ -427,12 +530,72 @@ public partial class GamePage : ContentPage
         return ddx * ddx + ddy * ddy <= HitRadius * HitRadius;
     }
 
-    // ── Button throw (straight forward) ──────────────────────────────────────
-
-    private void OnThrowForwardClicked(object? sender, EventArgs e)
+    private bool IsInsidePanSlider(Point pos)
     {
-        System.Diagnostics.Debug.WriteLine(">>> BUTTON THROW FORWARD");
-        _ = CommitThrowAsync(0, -250, 900);
+        if (PanSliderRoot.Width <= 0 || PanSliderRoot.Height <= 0)
+            return false;
+
+        return pos.X >= PanSliderRoot.X &&
+               pos.X <= PanSliderRoot.X + PanSliderRoot.Width &&
+               pos.Y >= PanSliderRoot.Y &&
+               pos.Y <= PanSliderRoot.Y + PanSliderRoot.Height;
+    }
+
+    private void OnPanSliderPanUpdated(object? sender, PanUpdatedEventArgs e)
+    {
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                if (_throwAnimationActive || _overlayVisible)
+                    return;
+
+                _panSliderInputNormalized = 0;
+                _throwPointerDown = false;
+                _throwModeActive = false;
+                _isCameraPanning = false;
+                break;
+
+            case GestureStatus.Running:
+                if (_throwAnimationActive || _overlayVisible)
+                    return;
+
+                var clampedThumbX = Math.Clamp(e.TotalX, -PanSliderTravel, PanSliderTravel);
+                PanSliderThumb.TranslationX = clampedThumbX;
+
+                var normalized = clampedThumbX / PanSliderTravel;
+                if (Math.Abs(normalized) < PanSliderDeadZone)
+                {
+                    normalized = 0;
+                }
+
+                _panSliderInputNormalized = normalized;
+                break;
+
+            case GestureStatus.Canceled:
+            case GestureStatus.Completed:
+                _panSliderInputNormalized = 0;
+                _ = PanSliderThumb.TranslateTo(0, 0, 120, Easing.CubicOut);
+                break;
+        }
+    }
+
+    private void ApplyContinuousPanFromSlider(float dt)
+    {
+        if (_overlayVisible || _throwAnimationActive)
+            return;
+
+        if (Math.Abs(_panSliderInputNormalized) < 0.001)
+            return;
+
+        // Scale pan speed with map width so larger scenes still feel responsive.
+        var mapToViewportRatio = _viewportService.WorldWidth / Math.Max(1.0, _viewportService.ViewportWidth);
+        var speedScreensPerSecond = 0.55 + ((mapToViewportRatio - 1.0) * 0.40);
+        var speedPixelsPerSecond = _viewportService.ViewportWidth * Math.Clamp(speedScreensPerSecond, 0.45, 1.60);
+        var panDelta = _panSliderInputNormalized * speedPixelsPerSecond * dt;
+
+        // Negative here keeps control intuitive: thumb right => camera/view right.
+        _viewportService.PanByScreenDelta(-panDelta);
+        ApplyCamera();
     }
 
     // ── Trajectory arc preview ────────────────────────────────────────────────
@@ -500,11 +663,11 @@ public partial class GamePage : ContentPage
 
     private async Task CommitThrowAsync(double screenDx, double screenDy, double flickSpeedPx)
     {
-        if (_throwAnimationActive)
+        if (_throwAnimationActive || _overlayVisible)
             return;
 
         var session = _sessions.Current;
-        if (session == null)
+        if (session == null || !session.IsRunning)
             return;
 
         var launch = BuildThrowLaunchInput(session, screenDx, screenDy, flickSpeedPx);
@@ -532,6 +695,19 @@ public partial class GamePage : ContentPage
             var impact = session.World.ResolveDeferredThrowSimulation(projectile, simulation);
 
             session.Throws++;
+
+            if (impact.ImpactType == ProjectileImpactType.Coworker)
+            {
+                session.Hits++;
+                if (impact.Coworker is not null && !impact.Coworker.IsAlive)
+                {
+                    session.Eliminations++;
+                }
+            }
+            else if (impact.ImpactType == ProjectileImpactType.Wall)
+            {
+                session.WallHits++;
+            }
 
             // Dispatch impact sounds immediately since EventDispatcher already ran this frame
             DispatchThrowImpactSound(impact);
@@ -714,6 +890,7 @@ public partial class GamePage : ContentPage
         var soundKey = impact.ImpactType switch
         {
             ProjectileImpactType.Coworker => "impact_high",
+            ProjectileImpactType.CrowdBlocker => "impact_low",
             ProjectileImpactType.Wall => "impact_object",
             ProjectileImpactType.Floor => "missed_shot_floor",
             ProjectileImpactType.DecorObject => "impact_low",
@@ -724,6 +901,156 @@ public partial class GamePage : ContentPage
         {
             _audio.PlaySfx(soundKey);
         }
+    }
+
+    private void OnPauseClicked(object? sender, EventArgs e)
+    {
+        if (_overlayVisible || _throwAnimationActive)
+            return;
+
+        var session = _sessions.Current;
+        if (session == null || session.World.IsGameOver)
+            return;
+
+        session.IsRunning = false;
+        ShowOverlay(OverlayMode.Pause);
+    }
+
+    private void OnOverlayResumeClicked(object? sender, EventArgs e)
+    {
+        var session = _sessions.Current;
+        if (session != null)
+        {
+            if (_overlayMode == OverlayMode.Intro || _overlayMode == OverlayMode.Pause)
+            {
+                session.IsRunning = true;
+            }
+        }
+
+        HideOverlay();
+    }
+
+    private void OnOverlayRestartClicked(object? sender, EventArgs e)
+    {
+        RestartGame();
+    }
+
+    private async void OnOverlayMainMenuClicked(object? sender, EventArgs e)
+    {
+        _audio.StopMusic();
+        _sessions.Stop();
+        await Shell.Current.GoToAsync("//MainMenuPage");
+    }
+
+    private void RestartGame()
+    {
+        _sessions.StartNewGame();
+
+        _sprites.Clear();
+        WorldLayer.Children.Clear();
+
+        _throwPointerDown = false;
+        _throwModeActive = false;
+        _isCameraPanning = false;
+        _touchThrowDx = 0f;
+        _touchThrowDy = 0f;
+        _throwAnimationActive = false;
+        _overlayVisible = false;
+        _gameOverOverlayShown = false;
+        _flickHead = 0;
+        _flickCount = 0;
+
+        ThrowFlyingBall.IsVisible = false;
+        ThrowFlyingBall.TranslationX = 0;
+        ThrowFlyingBall.TranslationY = 0;
+        ThrowOriginBall.TranslationX = 0;
+        ThrowOriginBall.TranslationY = 0;
+        ThrowOriginBall.IsVisible = true;
+        HideTrajectoryPreview();
+        HideOverlay();
+
+        var session = _sessions.Current;
+        if (session != null)
+        {
+            session.IsRunning = true;
+        }
+
+        _audio.PlayMusic("game");
+        ShowOverlay(OverlayMode.Intro);
+    }
+
+    private void ShowOverlay(OverlayMode mode)
+    {
+        var session = _sessions.Current;
+        if (session == null)
+            return;
+
+        _overlayVisible = true;
+        _overlayMode = mode;
+        GameOverlay.IsVisible = true;
+
+        switch (mode)
+        {
+            case OverlayMode.Intro:
+                OverlayTitleLabel.Text = "Ready To Defend?";
+                OverlayResumeButton.IsVisible = true;
+                OverlayResumeButton.Text = "Start Game";
+                OverlayRestartButton.IsVisible = false;
+                OverlayMenuButton.IsVisible = true;
+                OverlayStatsLabel.Text =
+                    "Drag from the paper ball to aim.\n" +
+                    "Release to throw.\n" +
+                    "Drag outside the ball to pan the camera.\n\n" +
+                    "Headshots are instant kills.\n" +
+                    "Body shots take multiple hits.\n" +
+                    "If the front line crowds, your shots get blocked. Pan to find new angles.";
+                break;
+
+            case OverlayMode.Pause:
+                OverlayTitleLabel.Text = "Paused";
+                OverlayResumeButton.IsVisible = true;
+                OverlayResumeButton.Text = "Resume";
+                OverlayRestartButton.IsVisible = true;
+                OverlayRestartButton.Text = "Restart";
+                OverlayMenuButton.IsVisible = true;
+                OverlayStatsLabel.Text = BuildOverlayStats(session);
+                break;
+
+            case OverlayMode.GameOver:
+                OverlayTitleLabel.Text = "Game Over";
+                OverlayResumeButton.IsVisible = false;
+                OverlayRestartButton.IsVisible = true;
+                OverlayRestartButton.Text = "Play Again";
+                OverlayMenuButton.IsVisible = true;
+                OverlayStatsLabel.Text = BuildOverlayStats(session);
+                break;
+        }
+    }
+
+    private void HideOverlay()
+    {
+        _overlayVisible = false;
+        _overlayMode = OverlayMode.None;
+        GameOverlay.IsVisible = false;
+    }
+
+    private static string BuildOverlayStats(GameSession session)
+    {
+        var world = session.World;
+        return
+            $"Score: {world.Score}\n" +
+            $"Wave: {world.WaveSpawnManager.CurrentWave}\n" +
+            $"Throws: {session.Throws}\n" +
+            $"Direct Hits: {session.Hits}\n" +
+            $"Eliminations: {session.Eliminations}\n" +
+            $"Wall Hits: {session.WallHits}\n" +
+            $"Frontline Pressure: {world.CoworkersReachedFront}/15";
+    }
+
+    private static bool IsTouchPlatform()
+    {
+        return DeviceInfo.Platform == DevicePlatform.Android ||
+               DeviceInfo.Platform == DevicePlatform.iOS;
     }
 
     #endregion

@@ -30,6 +30,10 @@ public sealed class EventDispatcher
                 case "projectile_hit_floor":
                     _audio.PlaySfx("missed_shot_floor");
                     break;
+
+                case "projectile_blocked_by_crowd":
+                    _audio.PlaySfx("impact_low");
+                    break;
                     
                 case "projectile_hit_property":
                     _audio.PlaySfx("impact_low");

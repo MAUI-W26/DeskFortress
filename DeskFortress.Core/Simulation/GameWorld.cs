@@ -185,6 +185,15 @@ public sealed class GameWorld
 
         foreach (var coworker in Coworkers.Where(c => c.IsAlive).ToList())
         {
+            if (coworker.IsCrowdingFront)
+            {
+                coworker.VX = 0f;
+                coworker.VY = 0f;
+                coworker.Y = MathF.Max(coworker.Y, FrontDangerZone + 0.005f);
+                MovementSystem.RefreshDepthAndScale(coworker);
+                continue;
+            }
+
             // Update AI with deltaTime for smooth angle changes
             CoworkerAI.UpdateMovement(coworker, speedMultiplier, dt);
 
@@ -207,9 +216,11 @@ public sealed class GameWorld
             // Check if reached front
             if (CoworkerAI.HasReachedFront(coworker, FrontDangerZone))
             {
-                CoworkerAI.RemoveCoworkerTracking(coworker.Id); // Clean up tracking
-                coworker.IsAlive = false;
-                CoworkersReachedFront++;
+                coworker.IsCrowdingFront = true;
+                coworker.VX = 0f;
+                coworker.VY = 0f;
+                coworker.Y = FrontDangerZone + 0.005f;
+                CoworkerAI.RemoveCoworkerTracking(coworker.Id);
                 Events.Add(new WorldEvent
                 {
                     Type = "coworker_reached_front",
@@ -220,6 +231,8 @@ public sealed class GameWorld
 
         // Resolve coworker-to-coworker collisions
         CoworkerCollisionSystem.ResolveCollisions(Coworkers, CoworkerAI);
+
+        RecalculateFrontlinePressure();
     }
 
     private void UpdateProjectiles(float dt)
@@ -266,12 +279,36 @@ public sealed class GameWorld
         switch (impact.ImpactType)
         {
             case ProjectileImpactType.Coworker:
+                var hitCoworker = impact.Coworker;
+                var wasKilled = hitCoworker is not null && impact.ZoneType.HasValue && hitCoworker.ApplyHit(impact.ZoneType.Value);
+                if (wasKilled && hitCoworker is not null)
+                {
+                    CoworkerAI.RemoveCoworkerTracking(hitCoworker.Id);
+                    RecalculateFrontlinePressure();
+                    Events.Add(new WorldEvent
+                    {
+                        Type = "coworker_killed",
+                        EntityId = hitCoworker.Id,
+                        ScoreDelta = impact.ScoreDelta
+                    });
+                }
+
                 projectile.TransitionToEmbedded(ProjectileRestType.Coworker, lingerTime: 0.15f);
                 Events.Add(new WorldEvent
                 {
                     Type = "projectile_hit_coworker",
                     EntityId = impact.Coworker?.Id,
                     ScoreDelta = impact.ScoreDelta
+                });
+                break;
+
+            case ProjectileImpactType.CrowdBlocker:
+                projectile.TransitionToEmbedded(ProjectileRestType.Coworker, lingerTime: 0.22f);
+                Events.Add(new WorldEvent
+                {
+                    Type = "projectile_blocked_by_crowd",
+                    EntityId = impact.Coworker?.Id,
+                    ScoreDelta = 0
                 });
                 break;
 
@@ -315,5 +352,10 @@ public sealed class GameWorld
                 });
                 break;
         }
+    }
+
+    private void RecalculateFrontlinePressure()
+    {
+        CoworkersReachedFront = Coworkers.Count(c => c.IsAlive && c.IsCrowdingFront);
     }
 }
